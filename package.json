@@ -50,7 +50,6 @@
     "@babel/eslint-parser": "^7.19.1",
     "@babel/plugin-transform-typescript": "^7.20.7",
     "better-docs": "github:3dmol/better-docs#master",
-    "canvas": "^2.11.0",
     "codecov": "^3.8.3",
     "del": "^7.0.0",
     "eslint": "^8.30.0",
