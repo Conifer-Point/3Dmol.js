@@ -47,6 +47,14 @@ export interface CartoonStyleSpec {
     tubes?: boolean;
     /** cartoon strand thickness, default is 0.4 */
     thickness?: number;
+    /** width of coil sections, default is 0.5. Overridden by width. */
+    coilWidth?: number;
+    /** width of helix and sheet sections, default is 1.3. Overridden by width. */
+    helixSheetWidth?: number;
+    /** width at nucleic acid backbone phosphorus, default is 0.8. Overridden by width. */
+    nucleicAcidWidth?: number;
+    /** thickness of nucleic acid base cylinders, default is 0.4 */
+    baseThickness?: number;
     /** cartoon strand width, default is secondary
     *       structure-dependent; does not apply to trace or ribbon */
     width?: number;
@@ -122,6 +130,11 @@ const helixSheetWidth = 1.3;
 const nucleicAcidWidth = 0.8;
 const defaultThickness = 0.4;
 const baseThickness    = 0.4;
+
+/** Nucleic acid base thickness for a cartoon style, defaulting to baseThickness. */
+function styleBaseThickness(cartoon) {
+    return isNumeric(cartoon?.baseThickness) ? cartoon.baseThickness : baseThickness;
+}
 
 function drawThinStrip(geo: Geometry, p1, p2, colors) {
 
@@ -801,28 +814,41 @@ function addBackbonePoints(points, num, smoothen, backbonePt,
     } else // depending on secondary structure, multiply the orientation
     // vector by some scalar
     {
-        if (!backboneAtom.style.cartoon.width) {
-            if (backboneAtom.ss === "c") {
-                if (backboneAtom.atom === "P")
-                    widthScalar = nucleicAcidWidth;
-                else
-                    widthScalar = coilWidth;
-            } else if (backboneAtom.ss === "arrow start") {
-                widthScalar = helixSheetWidth;
-                addArrowPoints = true;
+        const cartoonStyle = backboneAtom.style.cartoon;
+        const coil = isNumeric(cartoonStyle.coilWidth)
+            ? cartoonStyle.coilWidth : coilWidth;
+        const helixSheet = isNumeric(cartoonStyle.helixSheetWidth)
+            ? cartoonStyle.helixSheetWidth : helixSheetWidth;
+        const nucleicAcid = isNumeric(cartoonStyle.nucleicAcidWidth)
+            ? cartoonStyle.nucleicAcidWidth : nucleicAcidWidth;
 
-            } else if (backboneAtom.ss === "arrow end")
-                widthScalar = coilWidth;
+        // An arrowhead belongs to the residue, not to how wide it is drawn, so decide it
+        // before an explicit width can take over. Previously this lived inside the
+        // no-explicit-width branch, so setting width removed the arrowheads that
+        // arrows:true had asked for.
+        if (backboneAtom.ss === "arrow start")
+            addArrowPoints = true;
 
-            else if (backboneAtom.ss === "h" &&
-                backboneAtom.style.cartoon.tubes ||
-                backboneAtom.ss === "tube start")
-                widthScalar = coilWidth;
-
+        if (isNumeric(cartoonStyle.width)) {
+            widthScalar = cartoonStyle.width;
+        } else if (backboneAtom.ss === "c") {
+            if (backboneAtom.atom === "P")
+                widthScalar = nucleicAcid;
             else
-                widthScalar = helixSheetWidth;
-        } else
-            widthScalar = backboneAtom.style.cartoon.width;
+                widthScalar = coil;
+        } else if (backboneAtom.ss === "arrow start") {
+            widthScalar = helixSheet;
+
+        } else if (backboneAtom.ss === "arrow end")
+            widthScalar = coil;
+
+        else if (backboneAtom.ss === "h" &&
+            cartoonStyle.tubes ||
+            backboneAtom.ss === "tube start")
+            widthScalar = coil;
+
+        else
+            widthScalar = helixSheet;
     }
 
     // make sure the strand orientation doesn't twist more than 90 degrees
@@ -1131,7 +1157,7 @@ export function drawCartoon(group, atomList, gradientrange, quality = 10) {
                                 curr.y, curr.z);
 
                         GLDraw.drawCylinder(shapeGeo, baseStartPt,
-                            baseEndPt, baseThickness, CC
+                            baseEndPt, styleBaseThickness(cartoon), CC
                                 .color(baseEndPt.color), 0, 2);
                         addBackbonePoints(points, num,
                             true, terminalPt, termOrientPt,
@@ -1169,7 +1195,7 @@ export function drawCartoon(group, atomList, gradientrange, quality = 10) {
                         baseStartPt.add(startFix);
 
                         GLDraw.drawCylinder(shapeGeo, baseStartPt,
-                            baseEndPt, baseThickness, CC
+                            baseEndPt, styleBaseThickness(cartoon), CC
                                 .color(baseEndPt.color), 0, 2);
                         baseStartPt = null;
                         baseEndPt = null;
@@ -1252,7 +1278,7 @@ export function drawCartoon(group, atomList, gradientrange, quality = 10) {
         else
             baseStartPt = new Vector3(curr.x, curr.y, curr.z);
 
-        GLDraw.drawCylinder(shapeGeo, baseStartPt, baseEndPt, baseThickness,
+        GLDraw.drawCylinder(shapeGeo, baseStartPt, baseEndPt, styleBaseThickness(cartoon),
             CC.color(baseEndPt.color), 0, 2);
         addBackbonePoints(points, num, true, terminalPt,
             termOrientPt, prevOrientPt, curr, atoms, a);
