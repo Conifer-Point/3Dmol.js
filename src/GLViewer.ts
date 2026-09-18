@@ -693,8 +693,28 @@ export class GLViewer {
         }
         if (objects.length == 0) return [];
         this.raycaster.setFromCamera(mouse, this.camera);
-        return this.raycaster.intersectObjects(this.modelGroup, objects);
+        const intersects = this.raycaster.intersectObjects(this.modelGroup, objects);
+        return this.intersectionFilter ? this.intersectionFilter(intersects) : intersects;
     };
+
+    /**
+     * Optional filter over raycast hits, applied everywhere targeting happens: clicks,
+     * hovers and the context menu all read the first surviving entry.
+     *
+     * It exists because "what did the user point at" is not always "what is nearest the
+     * camera". An application may draw objects that are mouse-interactive but not visible
+     * -- a pick target around a feature it wants clickable without rendering it -- and such
+     * an object should not win over a visible one behind it. Only the application knows
+     * which of its objects those are, so the decision cannot live here.
+     *
+     * Receives the hits in the order the raycaster produced them (nearest first) and
+     * returns the list to use, which may be shorter or reordered. Filtering everything out
+     * means nothing was targeted.
+     *
+     * @example
+     * viewer.intersectionFilter = (hits) => hits.filter((h) => !h.clickable.style.pickOnly);
+     */
+    public intersectionFilter: ((intersects: any[]) => any[]) | null = null;
 
     /** Convert model coordinates to screen coordinates.
      * @param {object | list} - an object or list of objects with x,y,z attributes (e.g. an atom)
