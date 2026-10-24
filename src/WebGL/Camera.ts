@@ -20,6 +20,11 @@ export class Camera extends Object3D {
   near: number;
   far: number;
   z: number;
+  // Shift of the projected image in normalized device coordinates (the canvas spans -1..1).
+  // It moves the picture without moving the scene, so rotation still pivots about the view
+  // center; only where that center is drawn changes.
+  viewOffsetX = 0;
+  viewOffsetY = 0;
   constructor(fov = 50, aspect = 1, near = 0.1, far = 2000, ortho = false) {
     super();
 
@@ -69,6 +74,16 @@ export class Camera extends Object3D {
         this.near,
         this.far
       );
+    }
+
+    if (this.viewOffsetX || this.viewOffsetY) {
+      // Translate in clip space: x' = x + viewOffsetX * w, so after the perspective divide every
+      // point moves by viewOffsetX in NDC. Elements are column-major; row 3 holds w.
+      const te = this.projectionMatrix.elements;
+      for (let col = 0; col < 4; col++) {
+        te[col * 4] += this.viewOffsetX * te[col * 4 + 3];
+        te[col * 4 + 1] += this.viewOffsetY * te[col * 4 + 3];
+      }
     }
 
     this.projectionMatrixInverse.getInverse(this.projectionMatrix);

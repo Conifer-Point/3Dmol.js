@@ -50,6 +50,7 @@ export class GLViewer {
     private viewer_frame = 0;
     private WIDTH: number;
     private HEIGHT: number;
+    private viewOffset = { x: 0, y: 0 }; // pixels; see setViewOffset
     private viewChangeCallback: any = null;
     private stateChangeCallback: any = null;
 
@@ -1343,6 +1344,14 @@ export class GLViewer {
         this.ASPECT = this.renderer.getAspect(this.WIDTH, this.HEIGHT);
         this.renderer.setSize(this.WIDTH, this.HEIGHT);
         this.camera.aspect = this.ASPECT;
+        this.applyViewOffset();
+    }
+
+    // The offset is kept in pixels but the camera takes it in NDC, so it is re-derived whenever
+    // the size changes.
+    private applyViewOffset() {
+        this.camera.viewOffsetX = this.WIDTH > 0 ? 2 * this.viewOffset.x / this.WIDTH : 0;
+        this.camera.viewOffsetY = this.HEIGHT > 0 ? -2 * this.viewOffset.y / this.HEIGHT : 0;
         this.camera.updateProjectionMatrix();
     }
     /**
@@ -2064,6 +2073,35 @@ export class GLViewer {
             this.show();
         }
         return this;
+    };
+
+    /**
+     * Draw the view center at an offset from the canvas center, in screen pixels (positive x is
+     * right, positive y is down). Unlike translateScene, this moves only where the image is drawn:
+     * the scene and the center of rotation are unchanged, so rotating still pivots about what
+     * zoomTo centered on. Use it when part of the canvas is covered, e.g. by an overlay panel, to
+     * center the view on the uncovered part. The offset persists across resizes and zoomTo, and
+     * is not part of getView/setView. Picking and modelToScreen account for it.
+     *
+     * @param {number} x horizontal offset in pixels
+     * @param {number} y vertical offset in pixels
+     * @example
+     * viewer.zoomTo();
+     * viewer.setViewOffset(150, 0); // center on the canvas area right of a 300px panel
+     * viewer.rotate(90, 'y');       // still rotates about the zoomTo center
+     */
+    public setViewOffset(x: number, y: number) {
+        this.viewOffset = { x: x || 0, y: y || 0 };
+        this.applyViewOffset();
+        this.show();
+        return this;
+    };
+
+    /**
+     * @return {{x: number, y: number}} the offset set by setViewOffset, in pixels
+     */
+    public getViewOffset() {
+        return { ...this.viewOffset };
     };
 
     /**
